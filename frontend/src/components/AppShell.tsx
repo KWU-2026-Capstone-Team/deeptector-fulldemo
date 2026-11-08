@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
+import { PUBLIC_DEPLOYMENT } from "@/lib/features";
 
 const links = [
   ["/", "홈"],
@@ -52,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
       <main>{children}</main>
       <footer>
-        <span>LOCAL FORENSIC WORKBENCH</span>
+        <span>{PUBLIC_DEPLOYMENT ? "FORENSIC WORKBENCH · 졸업작품 시연" : "LOCAL FORENSIC WORKBENCH"}</span>
         <span>모델 신호는 조작의 확정적 증거가 아닙니다.</span>
       </footer>
     </div>

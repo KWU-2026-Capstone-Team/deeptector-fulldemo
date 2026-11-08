@@ -12,10 +12,53 @@ import tempfile
 from pathlib import Path
 
 
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+MAX_IMAGE_PIXELS = 40_000_000
+
+
 class AnalysisError(Exception):
     def __init__(self, code, message, details=None):
         super().__init__(message)
         self.code, self.message, self.details = code, message, details or {}
+
+
+def is_image(path) -> bool:
+    return Path(path).suffix.lower() in IMAGE_SUFFIXES
+
+
+def _sha256(path) -> str:
+    file_hash = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            file_hash.update(chunk)
+    return file_hash.hexdigest()
+
+
+def probe_image(path):
+    """Validate a still image with OpenCV only (available in the API and model environments)."""
+    import cv2
+    import numpy as np
+
+    raw = np.fromfile(str(path), dtype=np.uint8)  # imread() cannot open non-ASCII Windows paths
+    # A 1/8-scale decode is cheap and bounds the size before the full decode.
+    reduced = cv2.imdecode(raw, cv2.IMREAD_REDUCED_GRAYSCALE_8) if raw.size else None
+    if reduced is None:
+        raise AnalysisError("INVALID_IMAGE", "사진을 디코딩할 수 없습니다.")
+    if reduced.shape[0] * reduced.shape[1] * 64 > MAX_IMAGE_PIXELS * 1.1:
+        raise AnalysisError("IMAGE_LIMIT_EXCEEDED", "사진은 4천만 화소까지 지원합니다.")
+    image = cv2.imdecode(raw, cv2.IMREAD_COLOR)
+    if image is None:
+        raise AnalysisError("INVALID_IMAGE", "사진을 디코딩할 수 없습니다.")
+    height, width = image.shape[:2]
+    if width * height > MAX_IMAGE_PIXELS:
+        raise AnalysisError("IMAGE_LIMIT_EXCEEDED", "사진은 4천만 화소까지 지원합니다.")
+    return {
+        "media_type": "image",
+        "width": int(width),
+        "height": int(height),
+        "size_bytes": Path(path).stat().st_size,
+        "sha256": _sha256(path),
+    }
 
 
 def probe(path):
@@ -157,12 +200,122 @@ def real_analysis(path, model_dir):
     }
 
 
+def real_image_analysis(path, model_dir):
+    """Spatial-only analysis of a still image: one face crop, ConvNeXt x5, spatial Grad-CAM."""
+    import io
+
+    import torch
+    from facenet_pytorch import MTCNN
+    from PIL import Image, ImageOps
+    from torchvision import transforms
+
+    model_dir = Path(model_dir).resolve()
+    sys.path.insert(0, str(model_dir))
+    import infer
+    import xai
+
+    spatial = sorted((model_dir / "models/spatial").glob("*.pt"))
+    if len(spatial) != 5:
+        raise AnalysisError("MODEL_UNAVAILABLE", "공간 모델 5개가 필요합니다.")
+    digest = hashlib.sha256()
+    for file in [*spatial, model_dir / "infer.py", model_dir / "xai.py"]:
+        digest.update(file.name.encode())
+        with file.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    metadata = probe_image(path)
+    with Image.open(path) as opened:
+        # Phone photos store rotation in EXIF; faces are found far more reliably upright.
+        im = ImageOps.exif_transpose(opened).convert("RGB")
+    boxes, probabilities = MTCNN(keep_all=False, device="cpu").detect(im)
+    if boxes is None or not len(boxes):
+        raise AnalysisError(
+            "INSUFFICIENT_FACE_DATA", "사진에서 얼굴을 찾지 못했습니다. 얼굴이 잘 보이는 사진을 올려 주세요.",
+            {"detected": 0, "required": 1},
+        )
+    best = max(range(len(boxes)), key=lambda i: float(probabilities[i]))
+    x1, y1, x2, y2 = map(float, boxes[best])
+    pad = 0.1 * (y2 - y1)  # same crop rule as the video path / training data
+    box = (max(0, x1), max(0, y1 - pad), min(im.width, x2), min(im.height, y2 + pad))
+    face = im.crop(box).resize((224, 224))
+
+    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    conv = []
+    for file in spatial:
+        checkpoint = torch.load(file, map_location=dev)
+        model = infer.FaceClassifier(checkpoint.get("backbone", "convnext_tiny.fb_in22k_ft_in1k")).to(dev)
+        model.load_state_dict({k: (v.float() if torch.is_floating_point(v) else v) for k, v in checkpoint["state_dict"].items()})
+        model.eval()
+        conv.append(model)
+    tf = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), transforms.Normalize(infer.IMG_MEAN, infer.IMG_STD)])
+    x = tf(face).unsqueeze(0).to(dev)
+    with torch.no_grad():
+        sp = float(sum(torch.sigmoid(model(x)).item() for model in conv) / len(conv))
+
+    artifacts, warnings = {}, ["IMAGE_SPATIAL_ONLY"]
+    try:
+        artifacts["cam_spatial"] = xai.spatial_overlay([face], conv, dev).split(",", 1)[1]
+    except Exception:
+        warnings.append("CAM_SPATIAL_UNAVAILABLE")
+    out = io.BytesIO()
+    face.save(out, format="PNG")
+    artifacts["spatial_original"] = base64.b64encode(out.getvalue()).decode()
+    metadata.update(
+        {
+            "face_bbox": list(box),
+            "detection_confidence": float(probabilities[best]),
+            "faces_detected": int(len(boxes)),
+            "device": str(dev),
+            "adapter_version": "adapter-v1-image",
+            "coverage_note": "Most confident face only; spatial branch only (no motion in a still image)",
+        }
+    )
+    fake = sp >= 0.5
+    return {
+        "spatial": sp,
+        "temporal": None,
+        "fused": sp,
+        "n_faces": 1,
+        "family": (
+            "사진 분석 · 공간(외형) 모델에서 조작 신호 감지. 히트맵에서 모델이 주목한 얼굴 영역을 확인하세요."
+            if fake else "사진 분석 · 공간(외형) 모델 신호 낮음 → real 판정."
+        ),
+        "faithfulness": (
+            "사진은 움직임이 없어 시공간(입 동역학) 모델을 사용하지 않았습니다. 공간 모델은 영상 속 얼굴 바꾸기(FaceForensics++)로 "
+            "학습되어, 처음부터 AI로 생성한 인물 사진에 대한 정확도는 검증되지 않았습니다. 히트맵은 '모델 주목 영역'이며 물증이 아닙니다."
+        ),
+        "metadata": metadata,
+        "model_version": "spatial-only-" + digest.hexdigest()[:16],
+        "calibration_version": "not-applied-spatial-only",
+        "artifacts": artifacts,
+        "warnings": warnings,
+        "is_demo": False,
+    }
+
+
 class ModelAdapter:
     def __init__(self, config):
         self.config = config
 
     def analyze(self, path: Path, progress):
         progress("VALIDATING_VIDEO")
+        if self.config.inference_mode == "demo" and is_image(path):
+            metadata = probe_image(path)
+            progress("DEMO_INFERENCE")
+            return {
+                "spatial": 0.918,
+                "temporal": None,
+                "fused": 0.918,
+                "n_faces": 1,
+                "family": "사진 분석 · 공간 모델만 사용 (시연용 고정값)",
+                "faithfulness": "시연 모드: 실제 모델 또는 얼굴 검출을 실행하지 않았습니다.",
+                "metadata": metadata,
+                "model_version": "demo-fixture-v1",
+                "calibration_version": "not-applied-demo",
+                "artifacts": {},
+                "warnings": ["DEMO_NOT_REAL_INFERENCE", "IMAGE_SPATIAL_ONLY"],
+                "is_demo": True,
+            }
         if self.config.inference_mode == "demo":
             metadata = probe(path)
             progress("DEMO_INFERENCE")
@@ -233,7 +386,8 @@ if __name__ == "__main__":
     parser.add_argument("--model-dir", required=True)
     args = parser.parse_args()
     try:
-        result = real_analysis(args.input, args.model_dir)
+        analyze = real_image_analysis if is_image(args.input) else real_analysis
+        result = analyze(args.input, args.model_dir)
     except AnalysisError as exc:
         result = {"error": {"code": exc.code, "message": exc.message, "details": exc.details}}
     except ImportError:

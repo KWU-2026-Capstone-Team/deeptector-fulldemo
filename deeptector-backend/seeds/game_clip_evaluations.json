@@ -1,0 +1,172 @@
+{
+  "evaluations": [
+    {
+      "clip_id": "fake_easy_001",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.929612684249878,
+      "temporal": 0.9699008372742766,
+      "evaluated_at": "2026-11-08T03:36:34.499472+00:00"
+    },
+    {
+      "clip_id": "fake_easy_002",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.7604045093059539,
+      "temporal": 0.9965478848732012,
+      "evaluated_at": "2026-11-08T03:36:56.919133+00:00"
+    },
+    {
+      "clip_id": "fake_easy_003",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.8570628643035889,
+      "temporal": 0.9483422666461655,
+      "evaluated_at": "2026-11-08T03:37:16.100249+00:00"
+    },
+    {
+      "clip_id": "fake_easy_004",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.4945799678564072,
+      "temporal": 0.9965478848732012,
+      "evaluated_at": "2026-11-08T03:37:36.335364+00:00"
+    },
+    {
+      "clip_id": "fake_hard_001",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.9995492100715637,
+      "temporal": 0.8809885813613739,
+      "evaluated_at": "2026-11-08T03:39:32.196156+00:00"
+    },
+    {
+      "clip_id": "fake_hard_002",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.6554016709327698,
+      "temporal": 0.9798320225447091,
+      "evaluated_at": "2026-11-08T03:39:53.593929+00:00"
+    },
+    {
+      "clip_id": "fake_hard_003",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.9999316215515137,
+      "temporal": 0.9913687157096873,
+      "evaluated_at": "2026-11-08T03:40:16.500759+00:00"
+    },
+    {
+      "clip_id": "fake_hard_004",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.6844978570938111,
+      "temporal": 0.9696117347857333,
+      "evaluated_at": "2026-11-08T03:40:40.231096+00:00"
+    },
+    {
+      "clip_id": "fake_medium_001",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.6806267559528351,
+      "temporal": 0.9490780639347721,
+      "evaluated_at": "2026-11-08T03:37:57.426618+00:00"
+    },
+    {
+      "clip_id": "fake_medium_002",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.9977052807807922,
+      "temporal": 0.9886015322114149,
+      "evaluated_at": "2026-11-08T03:38:19.026489+00:00"
+    },
+    {
+      "clip_id": "fake_medium_003",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.5794457629323005,
+      "temporal": 0.9134090112487896,
+      "evaluated_at": "2026-11-08T03:38:42.433868+00:00"
+    },
+    {
+      "clip_id": "fake_medium_004",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.9993261456489563,
+      "temporal": 0.9938027946869532,
+      "evaluated_at": "2026-11-08T03:39:07.980677+00:00"
+    },
+    {
+      "clip_id": "real_001",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.13154726177453996,
+      "temporal": 0.9333724762540455,
+      "evaluated_at": "2026-11-08T03:31:38.089178+00:00"
+    },
+    {
+      "clip_id": "real_002",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.3134259391576052,
+      "temporal": 0.9535776116647013,
+      "evaluated_at": "2026-11-08T03:32:00.751580+00:00"
+    },
+    {
+      "clip_id": "real_003",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.23749924674630166,
+      "temporal": 0.9478374184866132,
+      "evaluated_at": "2026-11-08T03:32:27.333199+00:00"
+    },
+    {
+      "clip_id": "real_004",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.10853590480983258,
+      "temporal": 0.5074485274003397,
+      "evaluated_at": "2026-11-08T03:32:54.518551+00:00"
+    },
+    {
+      "clip_id": "real_005",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.25436154194176197,
+      "temporal": 0.9649320255037716,
+      "evaluated_at": "2026-11-08T03:33:18.950246+00:00"
+    },
+    {
+      "clip_id": "real_006",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.004175971180666238,
+      "temporal": 0.14343676485921125,
+      "evaluated_at": "2026-11-08T03:33:44.352399+00:00"
+    },
+    {
+      "clip_id": "real_007",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.011240487126633525,
+      "temporal": 0.5105211924468481,
+      "evaluated_at": "2026-11-08T03:34:08.507473+00:00"
+    },
+    {
+      "clip_id": "real_008",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.17848219014704228,
+      "temporal": 0.8018975380715672,
+      "evaluated_at": "2026-11-08T03:34:38.894302+00:00"
+    },
+    {
+      "clip_id": "real_009",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.03980069477111101,
+      "temporal": 0.9867419988284768,
+      "evaluated_at": "2026-11-08T03:35:03.634489+00:00"
+    },
+    {
+      "clip_id": "real_010",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.2998450696468353,
+      "temporal": 0.7535098162213487,
+      "evaluated_at": "2026-11-08T03:35:25.074762+00:00"
+    },
+    {
+      "clip_id": "real_011",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.018141847988590597,
+      "temporal": 0.8598886571522811,
+      "evaluated_at": "2026-11-08T03:35:48.624386+00:00"
+    },
+    {
+      "clip_id": "real_012",
+      "model_version": "dual-branch-d28bda40d902b7d0",
+      "spatial": 0.0028018632903695105,
+      "temporal": 0.771985343783214,
+      "evaluated_at": "2026-11-08T03:36:10.654551+00:00"
+    }
+  ]
+}

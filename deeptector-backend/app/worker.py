@@ -69,7 +69,7 @@ def _error_payload(exc: Exception) -> dict[str, Any]:
     }
 
 
-def _classify(spatial: Any, temporal: Any) -> dict[str, Any]:
+def _classify(spatial: Any, temporal: Any | None) -> dict[str, Any]:
     from .policy import classify
 
     result = classify(spatial, temporal)
@@ -215,7 +215,7 @@ def run_once(settings: Settings | None = None, adapter: Any | None = None) -> bo
         result = ModelResult.model_validate(
             {key: value for key, value in output.items() if key != "artifacts"}
         ).model_dump(exclude_none=True)
-        policy = _classify(result["spatial"], result["temporal"])
+        policy = _classify(result["spatial"], result.get("temporal"))
         artifact_records = _write_artifacts(configured, analysis_id, output["artifacts"])
         result["policy"] = policy
         now = iso_utc(utc_now())

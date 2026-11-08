@@ -381,3 +381,60 @@ def test_reference_loader_registers_exact_local_metadata(tmp_path):
     assert all(item["license"] == LICENSE and item["license_verified"] is False for item in loaded)
     assert all(Path(item["video_path"]).parent == (root / "public/videos").resolve() for item in loaded)
     assert not any("spatial" in item or "temporal" in item for item in loaded)
+
+
+def test_summary_versus_tally_counts_only_answered_rounds(client):
+    seed_balanced(client, count=6, evaluated=True)  # model is right on every clip
+    owner = auth(client)
+    game = client.post("/api/v1/games", json={"rounds": 4}, headers=owner).json()
+    game_id = game["id"]
+    fresh = client.get(f"/api/v1/games/{game_id}", headers=owner).json()
+    assert fresh["versus"] == {"user_correct": 0, "ai_correct": None, "ai_evaluated": 0, "answered": 0}
+    truth = labels(client, game_id)
+    wrong = {"REAL": "FAKE", "FAKE": "REAL"}
+    client.post(f"/api/v1/games/{game_id}/rounds/1/answer", json={"verdict": truth[1]}, headers=owner)
+    client.post(f"/api/v1/games/{game_id}/rounds/2/answer", json={"verdict": wrong[truth[2]]}, headers=owner)
+    summary = client.get(f"/api/v1/games/{game_id}", headers=owner).json()
+    assert summary["versus"] == {"user_correct": 1, "ai_correct": 2, "ai_evaluated": 2, "answered": 2}
+    listed = client.get("/api/v1/games", headers=owner).json()["items"][0]
+    assert listed["versus"]["ai_correct"] == 2
+
+
+def test_rounds_shrink_to_what_the_difficulty_can_balance(client):
+    seed_balanced(client, count=6)  # 3 REAL + 3 FAKE, all 'easy'
+    owner = auth(client)
+    created = client.post("/api/v1/games", json={"rounds": 10, "difficulty": "easy"}, headers=owner)
+    assert created.status_code == 201
+    body = created.json()
+    assert body["total_rounds"] == 6 and body["requested_rounds"] == 10
+    truth = labels(client, body["id"])
+    assert sorted(truth.values()) == ["FAKE"] * 3 + ["REAL"] * 3
+    assert client.get(f"/api/v1/games/{body['id']}", headers=owner).json()["total_rounds"] == 6
+    # One extra REAL makes an odd, still near-balanced game possible (3 FAKE + 4 REAL = 7).
+    with connect(client.app.state.settings) as db:
+        db.execute(
+            """INSERT INTO game_clips(id,video_path,label,explanation,source,license,enabled,
+                   difficulty,technique,cues_json,tips_json,source_verified,license_verified)
+               VALUES('extra','/missing.mp4','REAL','x','local',?,1,'easy',NULL,'[]','[]',1,0)""",
+            (LICENSE,),
+        )
+    assert client.post("/api/v1/games", json={"rounds": 15, "difficulty": "easy"}, headers=owner).json()["total_rounds"] == 7
+    # Requests that fit are unchanged.
+    assert client.post("/api/v1/games", json={"rounds": 4, "difficulty": "easy"}, headers=owner).json()["total_rounds"] == 4
+
+
+def test_evaluations_export_import_round_trip(client, tmp_path):
+    from app.evaluate_games import export_evaluations, import_evaluations
+
+    seed_balanced(client, count=4, evaluated=True)
+    settings = client.app.state.settings
+    target = tmp_path / "seed" / "evals.json"
+    assert export_evaluations(settings, target) == 4
+    with connect(settings) as db:
+        db.execute("DELETE FROM game_clip_evaluations")
+    assert import_evaluations(settings, target, None) == 4
+    with connect(settings) as db:
+        assert db.execute("SELECT count(*) FROM game_clip_evaluations").fetchone()[0] == 4
+        db.execute("DELETE FROM game_clips WHERE id='c0'")
+    with pytest.raises(SystemExit):
+        import_evaluations(settings, target, None)  # clips must be registered first

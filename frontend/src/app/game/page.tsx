@@ -3,9 +3,40 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ACTIVE_GAME_KEY, ApiError, api, errorText } from "@/lib/api";
+import { GAMES_ENABLED } from "@/lib/features";
+import { GamesDisabled } from "@/components/GamesDisabled";
 import type { AnswerReveal, Confidence, Difficulty, GameRound, GameSummary, Verdict } from "@/lib/types";
 
 type Phase = "loading" | "watching" | "revealing" | "error";
+
+function roundOutcome(reveal: AnswerReveal): { text: string; tone: "win" | "lose" | "draw" | "none" } {
+  if (reveal.ai_correct == null) return { text: "이 영상은 AI 평가가 없습니다", tone: "none" };
+  if (reveal.user_correct && reveal.ai_correct) return { text: "무승부 · 둘 다 정답", tone: "draw" };
+  if (reveal.user_correct) return { text: "나의 승리 · AI가 속았습니다", tone: "win" };
+  if (reveal.ai_correct) return { text: "AI 승리 · AI가 맞혔습니다", tone: "lose" };
+  return { text: "무승부 · 둘 다 오답", tone: "draw" };
+}
+
+function RoundVersus({ reveal }: { reveal: AnswerReveal }) {
+  const outcome = roundOutcome(reveal);
+  const signal = reveal.ai?.signal_score;
+  return (
+    <div className="round-versus">
+      <div className={`side ${reveal.user_correct ? "ok" : "no"}`}>
+        <span>나</span>
+        <b>{reveal.answer}</b>
+        <small>{reveal.user_correct ? "정답 ✓" : "오답 ✗"}</small>
+      </div>
+      <div className="vs-mid"><span>정답</span><b>{reveal.ground_truth}</b></div>
+      <div className={`side ai ${reveal.ai_correct == null ? "na" : reveal.ai_correct ? "ok" : "no"}`}>
+        <span>AI</span>
+        <b>{reveal.ai?.verdict ?? "—"}</b>
+        <small>{reveal.ai_correct == null ? "평가 없음" : `${reveal.ai_correct ? "정답 ✓" : "오답 ✗"}${signal == null ? "" : ` · 조작 신호 ${Math.round(signal)}%`}`}</small>
+      </div>
+      <p className={`round-outcome ${outcome.tone}`}>{outcome.text}</p>
+    </div>
+  );
+}
 
 function GameContent() {
   const router = useRouter();
@@ -101,6 +132,9 @@ function GameContent() {
         setGame(state);
         router.replace(`/game/?id=${encodeURIComponent(created.id)}`);
         await loadRound(state);
+        if (mounted.current && state.total_rounds < rounds) {
+          setMessage(`이 난이도는 영상이 부족해 ${rounds}라운드 대신 ${state.total_rounds}라운드로 진행합니다. 영상을 관찰한 뒤 REAL 또는 FAKE를 선택하세요.`);
+        }
       } catch (error) {
         setPhase("error");
         setMessage(errorText(error));
@@ -175,6 +209,10 @@ function GameContent() {
         <button className="ghost" onClick={() => router.push("/")}>← 종료</button>
         <div><span>ROUND</span><b>{round?.round || 0} / {game?.total_rounds || "—"}</b></div>
         <div><span>SCORE</span><b>{game?.score ?? 0}</b></div>
+        <div className="versus-mini" aria-label="사람 대 AI 맞힌 개수">
+          <span>나 VS AI</span>
+          <b><em className="me">{game?.versus?.user_correct ?? 0}</em> : <em className="ai">{game?.versus?.ai_correct ?? "—"}</em></b>
+        </div>
         <div><span>MAX COMBO</span><b>×{game?.max_streak ?? 0}</b></div>
       </div>
 
@@ -191,12 +229,12 @@ function GameContent() {
           <p className="notice" role="status" aria-live="polite">{message}</p>
           {phase !== "revealing" && <>
             <div className="field"><label htmlFor="confidence">판단 확신도</label><select id="confidence" value={confidence} onChange={(event) => setConfidence(event.target.value as Confidence)}><option value="LOW">낮음</option><option value="MEDIUM">보통</option><option value="HIGH">높음</option></select></div>
-            <p className="muted game-help">정답 제출 전에는 라벨, 해설, AI 점수를 가져오지 않습니다. 영상 오류는 오답으로 만들지 않고 서버에 skip으로 기록합니다.</p>
+            <p className="muted game-help">우리 탐지 모델(AI)도 같은 영상을 이미 판정해 두었습니다. 답을 제출하면 AI의 판정과 비교합니다. 영상 오류는 오답으로 만들지 않고 건너뛰기로 기록합니다.</p>
             <button className="small-button secondary" onClick={() => void skip()} disabled={!round || (phase !== "watching" && phase !== "error")}>영상 재생 불가 · 건너뛰기</button>
           </>}
           {reveal && <div className={`reveal ${reveal.user_correct ? "correct" : "wrong"}`}>
             <div className="reveal-title"><strong>{reveal.user_correct ? "CONFIRMED" : "INCORRECT"}</strong><span>{reveal.points > 0 ? `+${reveal.points}` : "0"} PTS · COMBO ×{reveal.streak}</span></div>
-            <dl><div><dt>내 답</dt><dd>{reveal.answer}</dd></div><div><dt>정답</dt><dd>{reveal.ground_truth}</dd></div><div><dt>AI</dt><dd>{reveal.ai ? `${reveal.ai.verdict || "평가 있음"}${reveal.ai_correct == null ? "" : reveal.ai_correct ? " · 정답" : " · 오답"}` : "평가 없음"}</dd></div></dl>
+            <RoundVersus reveal={reveal} />
             {reveal.technique && <span className="status-chip">{reveal.technique}</span>}
             <p>{reveal.explanation}</p>
             {reveal.cues.length > 0 && <div className="tags">{reveal.cues.map((cue) => <span key={cue}>{cue}</span>)}</div>}
@@ -215,5 +253,6 @@ function GameContent() {
 }
 
 export default function GamePage() {
+  if (!GAMES_ENABLED) return <GamesDisabled />;
   return <Suspense fallback={<div className="video-placeholder"><span className="spinner" /> INITIALIZING</div>}><GameContent /></Suspense>;
 }

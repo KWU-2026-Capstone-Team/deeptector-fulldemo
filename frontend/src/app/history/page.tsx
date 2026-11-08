@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, errorText } from "@/lib/api";
+import { GAMES_ENABLED } from "@/lib/features";
 import type { AnalysisSummary, GameSummary } from "@/lib/types";
 
 export default function HistoryPage() {
@@ -14,7 +15,7 @@ export default function HistoryPage() {
   const refresh = useCallback(async () => {
     try {
       await api.connect();
-      const [analysisData, gameData] = await Promise.all([api.analyses(), api.games()]);
+      const [analysisData, gameData] = await Promise.all([api.analyses(), GAMES_ENABLED ? api.games() : Promise.resolve({ items: [] })]);
       setAnalyses(analysisData.items);
       setGames(gameData.items);
       setMessage("현재 브라우저 탭의 서버 세션 이력입니다.");
@@ -41,17 +42,17 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <header className="page-head"><div><p className="kicker">SESSION RECORDS</p><h1>분석 및 게임 이력</h1><p className="muted">Bearer 세션 소유 범위 안의 기록만 서버에서 조회합니다.</p></div><button className="secondary small-button" onClick={() => void refresh()}>새로고침</button></header>
+      <header className="page-head"><div><p className="kicker">SESSION RECORDS</p><h1>{GAMES_ENABLED ? "분석 및 게임 이력" : "분석 이력"}</h1><p className="muted">Bearer 세션 소유 범위 안의 기록만 서버에서 조회합니다.</p></div><button className="secondary small-button" onClick={() => void refresh()}>새로고침</button></header>
       <p className="notice" role="status">{message}</p>
-      <div className="grid-2">
+      <div className={GAMES_ENABLED ? "grid-2" : undefined}>
         <section className="card"><h2>영상 분석</h2><div className="list">
           {analyses.length === 0 && <div className="empty">저장된 분석이 없습니다.</div>}
           {analyses.map((item) => <article className="list-item" key={item.id}><div><h3>{item.filename}</h3><p className="id">{item.id}</p><span className="status-chip">{item.status}</span></div><div className="button-row"><button onClick={() => router.push(`/analysis/?id=${encodeURIComponent(item.id)}`)}>열기</button><button className="danger" disabled={!(["COMPLETED", "FAILED"].includes(item.status))} onClick={() => void deleteAnalysis(item.id)}>삭제</button></div></article>)}
         </div></section>
-        <section className="card"><h2>판별 게임</h2><div className="list">
+        {GAMES_ENABLED && <section className="card"><h2>판별 게임</h2><div className="list">
           {games.length === 0 && <div className="empty">저장된 게임이 없습니다.</div>}
           {games.map((game) => <article className="list-item" key={game.id}><div><h3>{game.total_rounds} 라운드 · {game.difficulty.toUpperCase()}</h3><p className="id">{game.id}</p><span className="status-chip">{game.status} · {game.answered_rounds}/{game.total_rounds}</span></div><div className="button-row"><button onClick={() => router.push(game.status === "COMPLETED" ? `/result/?id=${encodeURIComponent(game.id)}` : `/game/?id=${encodeURIComponent(game.id)}`)}>{game.status === "COMPLETED" ? "결과" : "이어하기"}</button><button className="danger" onClick={() => void deleteGame(game.id)}>삭제</button></div></article>)}
-        </div></section>
+        </div></section>}
       </div>
     </div>
   );

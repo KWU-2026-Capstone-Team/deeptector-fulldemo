@@ -58,9 +58,10 @@ class RiskPolicy(BaseModel):
 class ModelResult(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
     spatial: float = Field(ge=0, le=1)
-    temporal: float = Field(ge=0, le=1)
+    # None for still images: no motion, so the temporal branch does not run.
+    temporal: float | None = Field(default=None, ge=0, le=1)
     fused: float = Field(ge=0, le=1)
-    n_faces: int = Field(ge=4, le=16)
+    n_faces: int = Field(ge=1, le=16)
     family: str
     faithfulness: str
     metadata: dict[str, Any]
@@ -72,6 +73,13 @@ class ModelResult(BaseModel):
 
     @model_validator(mode="after")
     def consistent_fusion(self):
+        if self.temporal is None:
+            # Still image: spatial branch only, and a single face crop.
+            if not math.isclose(self.fused, self.spatial, rel_tol=0, abs_tol=1e-8):
+                raise ValueError("Image fused score must equal the spatial score")
+            return self
+        if self.n_faces < 4:
+            raise ValueError("Video analysis requires at least 4 face frames")
         if not math.isclose(self.fused, (self.spatial + self.temporal) / 2, rel_tol=0, abs_tol=1e-8):
             raise ValueError("Fused score does not match branch mean")
         return self

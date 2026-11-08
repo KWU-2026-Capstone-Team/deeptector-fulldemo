@@ -19,11 +19,15 @@ def main():
     parser.add_argument("--mode", choices=("demo", "real"), default="demo")
     parser.add_argument("--model-dir", type=Path)
     parser.add_argument("--worker-python", type=Path)
+    parser.add_argument("--host", default="127.0.0.1", help="bind address (0.0.0.0 only inside a container/host you control)")
+    parser.add_argument("--data-dir", type=Path, help="DB/storage folder (default: backend data/integrated)")
+    parser.add_argument("--behind-proxy", action="store_true", help="trust X-Forwarded-For from the hosting proxy")
+    parser.add_argument("--frontend-dir", type=Path, help="built Next.js export (default: frontend/out)")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("port must be 1024..65535")
     root = Path(__file__).resolve().parents[1]
-    export = root.parent / "frontend" / "out"
+    export = (args.frontend_dir or root.parent / "frontend" / "out").resolve()
     if not (export / "index.html").is_file():
         parser.error("Build frontend first: cd frontend; npm ci; npm run build")
     if args.mode == "real" and (not args.model_dir or not args.model_dir.is_dir()):
@@ -33,11 +37,14 @@ def main():
         parser.error("worker Python does not exist")
     with socket.socket() as sock:
         try:
-            sock.bind(("127.0.0.1", args.port))
+            sock.bind((args.host, args.port))
         except OSError:
             parser.error(f"Port {args.port} is occupied; stop your previous server or choose --port")
-    data = root / "data" / "integrated"
+    data = (args.data_dir or root / "data" / "integrated").resolve()
+    data.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
+    # A deployment may set its own public origin(s); local runs keep loopback only.
+    cors = env.get("DEEPTECTOR_CORS_ORIGINS") or f"http://127.0.0.1:{args.port},http://localhost:{args.port}"
     env.update(
         DEEPTECTOR_INFERENCE_MODE=args.mode,
         DEEPTECTOR_DATA_DIR=str(data),
@@ -45,7 +52,7 @@ def main():
         DEEPTECTOR_STORAGE_DIR=str(data / "storage"),
         DEEPTECTOR_FRONTEND_DIR=str(export),
         DEEPTECTOR_MAX_UPLOAD_BYTES=str(50 * 1024 * 1024),
-        DEEPTECTOR_CORS_ORIGINS=f"http://127.0.0.1:{args.port},http://localhost:{args.port}",
+        DEEPTECTOR_CORS_ORIGINS=cors,
         PYTHONIOENCODING="utf-8",
         DEEPTECTOR_LOCAL_RUNTIME="1",
         DEEPTECTOR_RUN_ID=str(uuid.uuid4()),
@@ -54,7 +61,13 @@ def main():
         env["DEEPTECTOR_MODEL_DIR"] = str(args.model_dir.resolve())
     processes = []
     try:
-        api = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(args.port)], cwd=root, env=env)
+        uvicorn_args = [sys.executable, "-m", "uvicorn", "app.main:app", "--host", args.host, "--port", str(args.port)]
+        api_env = env
+        if args.behind_proxy:
+            # Via env, not argv: click expands "*" into file names on Windows.
+            uvicorn_args.append("--proxy-headers")
+            api_env = {**env, "FORWARDED_ALLOW_IPS": "*"}
+        api = subprocess.Popen(uvicorn_args, cwd=root, env=api_env)
         processes.append(api)
         ready = False
         for _ in range(40):
@@ -86,8 +99,8 @@ def main():
         if not worker_ready:
             print("Worker startup failed; check dependencies/model files or another integrated worker.", flush=True)
             return 1
-        print(f"DeepTector ({args.mode}): http://127.0.0.1:{args.port}/", flush=True)
-        print(f"Data: {data}\nCtrl+C stops API and worker. No public tunnel is opened.", flush=True)
+        print(f"DeepTector ({args.mode}): http://127.0.0.1:{args.port}/ (bind {args.host})", flush=True)
+        print(f"Data: {data}\nCtrl+C stops API and worker.", flush=True)
         while all(process.poll() is None for process in processes):
             time.sleep(0.5)
         print("A service exited; stopping the companion process.", flush=True)

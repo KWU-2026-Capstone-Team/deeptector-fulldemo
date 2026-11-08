@@ -15,7 +15,8 @@ export interface AnalysisSummary {
 export interface AnalysisDetail extends AnalysisSummary {
   result: null | {
     spatial: number;
-    temporal: number;
+    /** null/absent for still images (spatial branch only). */
+    temporal?: number | null;
     fused: number;
     n_faces: number;
     family: string;
@@ -51,6 +52,15 @@ export interface GameSummary {
   max_streak: number;
   created_at?: string;
   updated_at?: string;
+  versus?: Versus;
+}
+
+/** Running human-vs-model tally over answered rounds. ai_correct is null when no round has a model evaluation. */
+export interface Versus {
+  user_correct: number;
+  ai_correct: number | null;
+  ai_evaluated: number;
+  answered: number;
 }
 
 export interface GameRound {
@@ -66,7 +76,7 @@ export interface AnswerReveal {
   ground_truth: Verdict;
   user_correct: boolean | null;
   ai_correct: boolean | null;
-  ai: null | { verdict?: Verdict; spatial?: number | null; temporal?: number | null; fused?: number | null; model_version?: string };
+  ai: null | { verdict?: Verdict; spatial?: number | null; temporal?: number | null; fused?: number | null; signal_score?: number; model_version?: string };
   explanation: string;
   cues: string[];
   tips: string[];
@@ -93,5 +103,6 @@ export interface GameResult {
   user_accuracy: number | null;
   ai_accuracy: number | null;
   difficulty?: Difficulty;
+  categories?: { human_only: number[]; ai_only: number[]; both_correct: number[]; both_wrong: number[] };
   rounds: AnswerReveal[];
 }

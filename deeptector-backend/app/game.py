@@ -82,7 +82,21 @@ def _summary(db, game) -> dict:
         "score": game["score"],
         "max_streak": game["max_streak"],
         "created_at": game["created_at"],
+        "versus": _versus(db, game["id"]),
     }
+
+
+def _versus(db, game_id: str) -> dict:
+    """Running human-vs-model tally over answered rounds (labels never leak for unanswered ones)."""
+    rows = db.execute(
+        """SELECT verdict,snapshot_label AS label,ai_spatial,ai_temporal FROM game_rounds
+           WHERE game_id=? AND verdict IS NOT NULL""",
+        (game_id,),
+    ).fetchall()
+    user = sum(row["verdict"] == row["label"] for row in rows)
+    evaluated = [row for row in rows if row["ai_spatial"] is not None and row["ai_temporal"] is not None]
+    ai = sum(classify(row["ai_spatial"], row["ai_temporal"])["verdict"] == row["label"] for row in evaluated)
+    return {"user_correct": user, "ai_correct": ai if evaluated else None, "ai_evaluated": len(evaluated), "answered": len(rows)}
 
 
 @router.get("")
@@ -95,6 +109,12 @@ def list_games(request: Request, session_id=Depends(owner), limit: int = Query(5
         ).fetchall()
         items = [_summary(db, game) for game in games]
     return {"items": items}
+
+
+def _max_balanced_rounds(clips: list) -> int:
+    real = sum(clip["label"] == "REAL" for clip in clips)
+    fake = sum(clip["label"] == "FAKE" for clip in clips)
+    return 2 * min(real, fake) + (1 if real != fake else 0)
 
 
 def _balanced_sample(clips: list, count: int) -> list:
@@ -135,14 +155,17 @@ def start_game(body: StartGame, request: Request, session_id=Depends(owner)):
         )
         params = () if body.difficulty == "all" else (body.difficulty,)
         clips = list(db.execute(f"SELECT * FROM game_clips WHERE {where}", params))
-        selected = _balanced_sample(clips, body.rounds)
+        # Shrink to the longest label-balanced game this difficulty can supply instead of refusing.
+        rounds = min(body.rounds, _max_balanced_rounds(clips))
+        selected = _balanced_sample(clips, max(rounds, 1))
+        rounds = len(selected)
         game_id = str(uuid.uuid4())
         created_at = now()
         db.execute(
             """INSERT INTO games(
                    id,session_id,status,total_rounds,difficulty,created_at
                ) VALUES(?,?,'ACTIVE',?,?,?)""",
-            (game_id, session_id, body.rounds, body.difficulty, created_at),
+            (game_id, session_id, rounds, body.difficulty, created_at),
         )
         for ordinal, clip in enumerate(selected, 1):
             evaluation = db.execute(
@@ -170,7 +193,7 @@ def start_game(body: StartGame, request: Request, session_id=Depends(owner)):
                     clip["tips_json"],
                 ),
             )
-    return {"id": game_id, "status": "ACTIVE", "total_rounds": body.rounds, "next_round": 1}
+    return {"id": game_id, "status": "ACTIVE", "total_rounds": rounds, "requested_rounds": body.rounds, "next_round": 1}
 
 
 @router.get("/{game_id}")

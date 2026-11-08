@@ -5,7 +5,9 @@ import asyncio
 import json
 import re
 import secrets
+import time
 import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -31,6 +33,9 @@ from .schemas import (
 
 
 ALLOWED_VIDEO_SUFFIXES = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
+# Still images are analyzed with the spatial branch only (see app.inference.real_image_analysis).
+ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+ALLOWED_MEDIA_SUFFIXES = ALLOWED_VIDEO_SUFFIXES | ALLOWED_IMAGE_SUFFIXES
 TERMINAL_STATUSES = {"COMPLETED", "FAILED"}
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 
@@ -250,6 +255,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(title="Deeptector API", version="1.0.0", lifespan=lifespan)
     application.state.settings = configured
     application.state.model_loaded = False
+    session_hits: dict[str, deque[float]] = {}
     application.add_middleware(UploadBodyLimitMiddleware, max_upload_bytes=configured.max_upload_bytes)
     application.add_middleware(UploadAdmissionMiddleware, settings=configured)
     application.add_middleware(
@@ -324,9 +330,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "/api/v1/sessions",
         response_model=SessionResponse,
         status_code=status.HTTP_201_CREATED,
-        responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+        responses={422: {"model": ErrorResponse}, 429: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
-    async def create_session() -> SessionResponse:
+    async def create_session(request: Request) -> SessionResponse:
+        if configured.session_rate_per_ip_hour:
+            # In-memory, single API process. Behind a proxy, run uvicorn with
+            # --proxy-headers so request.client is the forwarded client address.
+            client = request.client.host if request.client else "unknown"
+            if configured.client_ip_header:
+                client = request.headers.get(configured.client_ip_header, "").strip() or client
+            cutoff = time.monotonic() - 3600
+            if len(session_hits) > 50_000:
+                for key in [k for k, hits in session_hits.items() if not hits or hits[-1] < cutoff]:
+                    del session_hits[key]
+            hits = session_hits.setdefault(client, deque())
+            while hits and hits[0] < cutoff:
+                hits.popleft()
+            if len(hits) >= configured.session_rate_per_ip_hour:
+                raise _error("RATE_LIMITED", "Too many new sessions from this address; try again later", 429)
+            hits.append(time.monotonic())
         session_id = str(uuid.uuid4())
         token = secrets.token_urlsafe(32)
         now = utc_now()
@@ -360,7 +382,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     async def queue_analysis(
         request: Request,
-        video: Annotated[UploadFile, File(description="Video to analyze")],
+        video: Annotated[UploadFile, File(description="Video or still image (spatial-only) to analyze")],
         session_id: Annotated[str, Depends(get_session)],
     ) -> AnalysisDetail:
         from .local_runtime import enabled, worker_health
@@ -368,12 +390,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise _error("WORKER_UNAVAILABLE", "분석 worker를 사용할 수 없습니다. 통합 실행기를 다시 실행하세요.", 503)
         filename = _clean_filename(video.filename)
         suffix = Path(filename).suffix.lower()
-        if suffix not in ALLOWED_VIDEO_SUFFIXES:
+        if suffix not in ALLOWED_MEDIA_SUFFIXES:
             raise _error(
                 "UNSUPPORTED_VIDEO_TYPE",
-                "Unsupported video filename extension",
+                "Unsupported video or image filename extension",
                 status.HTTP_400_BAD_REQUEST,
-                {"allowed_extensions": sorted(ALLOWED_VIDEO_SUFFIXES)},
+                {"allowed_extensions": sorted(ALLOWED_MEDIA_SUFFIXES)},
             )
         content_length = request.headers.get("content-length")
         if content_length:
@@ -537,9 +559,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Cache-Control": "private, no-store"},
         )
 
-    from .game import router as game_router
+    if configured.games_enabled:
+        from .game import router as game_router
 
-    application.include_router(game_router)
+        application.include_router(game_router)
 
     def openapi_contract():
         if application.openapi_schema:
