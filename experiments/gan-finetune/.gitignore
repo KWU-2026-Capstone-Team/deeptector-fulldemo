@@ -1,0 +1,7 @@
+# Datasets (FFHQ/StyleGAN, FF++ game clips): research use only, never commit or redistribute
+data/
+raw/
+# Trained weights derived from the NC-licensed data; keep local (see README)
+checkpoints/
+.venv/
+__pycache__/

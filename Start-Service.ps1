@@ -9,6 +9,15 @@ param(
 $ErrorActionPreference = 'Stop'
 $serviceRoot = $PSScriptRoot
 $backendRoot = Join-Path $serviceRoot 'deeptector-backend'
+# Defaults created by Setup-Workspace.ps1, so `.\Start-Service.ps1 -Mode real` is enough.
+if ($Mode -eq 'real' -and !$ModelDir) {
+    $defaultModel = Join-Path $serviceRoot 'AI-Generated-Media-Detection\deepfake_detector'
+    if (Test-Path -LiteralPath (Join-Path $defaultModel 'infer.py')) { $ModelDir = $defaultModel }
+}
+if ($Mode -eq 'real' -and !$WorkerPython) {
+    $defaultWorker = Join-Path $backendRoot '.venv-model\Scripts\python.exe'
+    if (Test-Path -LiteralPath $defaultWorker) { $WorkerPython = $defaultWorker }
+}
 $servicePython = Join-Path $backendRoot '.venv\Scripts\python.exe'
 if (!(Test-Path -LiteralPath $servicePython)) {
     & py -3.11 -m venv (Join-Path $backendRoot '.venv')

@@ -1,0 +1,21 @@
+{
+  "name": "finetuned-fold1",
+  "checkpoints": [
+    "checkpoints\\convnext_fold1_gan.pt"
+  ],
+  "stylegan_test": {
+    "n": 2000,
+    "accuracy": 0.722,
+    "auc": 0.8057449999999999,
+    "real_correct": 0.746,
+    "fake_detected": 0.698
+  },
+  "ffpp_clips": {
+    "n": 24,
+    "spatial_accuracy": 0.7083333333333334,
+    "spatial_auc": 0.7361111111111112,
+    "real_correct": 0.9166666666666666,
+    "fake_detected": 0.5,
+    "service_dual_branch_accuracy": 0.6666666666666666
+  }
+}

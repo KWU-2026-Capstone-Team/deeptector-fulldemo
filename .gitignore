@@ -23,3 +23,9 @@ out/
 .artifacts/
 playwright-report/
 test-results/
+
+# Public tunnel build/data (Start-PublicTunnel.ps1)
+.public/
+
+# Team model repo, cloned here by Setup-Workspace.ps1 (separate git repository)
+/AI-Generated-Media-Detection/

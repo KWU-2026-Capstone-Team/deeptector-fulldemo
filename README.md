@@ -2,6 +2,52 @@
 
 이 저장소의 `main`은 DeepTector UI 프로토타입과 서비스 백엔드를 관리합니다.
 
+## 새 PC에서 시작하기 (`seelhwan/full-demo` 브랜치)
+
+실제 모델 분석(영상·사진), 사람 vs AI 대결 게임, 교육 콘텐츠, 공개 링크까지 한 번에 재현합니다.
+
+**필요한 것**: Git, Windows Python 3.11, Node.js 20 이상.
+```powershell
+winget install --id Python.Python.3.11 -e
+winget install --id OpenJS.NodeJS.LTS -e
+```
+
+**설치** (처음 한 번만, 10~20분)
+```powershell
+git clone --branch seelhwan/full-demo https://github.com/KWU-2026-Capstone-Team/Service.git
+cd Service
+powershell -ExecutionPolicy Bypass -File .\Setup-Workspace.ps1
+```
+`Setup-Workspace.ps1`이 하는 일:
+- 팀 모델 저장소를 `Service\AI-Generated-Media-Detection\`에 clone합니다. 가중치가 git에 포함돼 있습니다.
+- 게임 저장소를 `Service`와 나란한 `..\deepGame\`에 clone합니다.
+- 가상환경 2개(`.venv`는 API용, `.venv-model`은 모델용)를 만듭니다.
+- 프론트엔드를 빌드합니다.
+- 게임 영상 24개와 저장된 AI 점수(`deeptector-backend/seeds/`)를 등록합니다.
+
+다시 실행해도 안전합니다. 이미 끝난 단계는 건너뜁니다.
+
+**실행**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Start-Service.ps1 -Mode real     # 게임 + 분석 → http://127.0.0.1:5173/
+powershell -ExecutionPolicy Bypass -File .\Start-PublicTunnel.ps1           # 분석 전용 공개 링크(게임 꺼짐)
+```
+- 공개 링크를 쓰려면 먼저 `winget install --id Cloudflare.cloudflared -e`로 cloudflared를 설치하세요.
+- 공개 링크는 켤 때마다 주소가 바뀌고, 이 PC가 켜져 있는 동안만 접속됩니다. 주소는 `.public\current-url.txt`에도 저장됩니다.
+- 공개 링크에는 게임이 없습니다. 게임 영상(FaceForensics++ 계열)의 공개 재배포 권한을 확인하지 못했기 때문입니다.
+
+**이 브랜치에서 추가된 것**
+| 기능 | 위치 |
+|---|---|
+| 사람 vs AI 대결 게임 (실시간 스코어, 결과 스코어보드, 라운드별 AI 판정) | `frontend/src/app/game`, `result`, `deeptector-backend/app/game.py` |
+| 난이도별 영상이 부족하면 라운드 수 자동 조정 | `app/game.py` |
+| 사진 분석 (공간 모델만 사용, 한계 표시) | `app/inference.py`, `app/policy.py`, `frontend/src/app/analysis` |
+| 교육 콘텐츠 (나의 판별 리포트, 확인 체크리스트, 대응 요령, 신고처) | `frontend/src/lib/education.ts` (문구는 여기서 수정) |
+| 공개 모드 (게임 끄기, IP별 세션 제한, 개인정보 안내) | `DEEPTECTOR_ENABLE_GAMES`, `DEEPTECTOR_SESSION_RATE_PER_IP_HOUR`, `Start-PublicTunnel.ps1` |
+| Hugging Face Spaces 배포 파일 (PRO 구독 필요해 보류) | `deploy/huggingface/` |
+| GAN 사진 추가 학습 실험 (서비스에는 미적용) | `experiments/gan-finetune/` (`RESULTS.md` 참고) |
+| 게임 AI 점수 내보내기·가져오기 | `python -m app.evaluate_games --export / --import-json` |
+
 ## 통합 서비스 (DeepGame + 영상 분석)
 
 `integration/deepgame-service` 브랜치의 통합판은 Next.js 화면과 FastAPI를 **한 로컬 주소**에서 제공합니다. [통합 실행·검증 안내](deeptector-backend/docs/INTEGRATED_SERVICE.md)를 참고하세요. 기존 GitHub Pages 화면은 유지되며 이 브랜치를 만들었다고 자동으로 교체되지 않습니다.

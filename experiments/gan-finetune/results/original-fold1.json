@@ -1,0 +1,21 @@
+{
+  "name": "original-fold1",
+  "checkpoints": [
+    "C:\\Users\\USEr\\Desktop\\\uc878\uc791\\Service\\AI-Generated-Media-Detection\\deepfake_detector\\models\\spatial\\convnext_fold1.pt"
+  ],
+  "stylegan_test": {
+    "n": 2000,
+    "accuracy": 0.4745,
+    "auc": 0.41591700000000004,
+    "real_correct": 0.848,
+    "fake_detected": 0.101
+  },
+  "ffpp_clips": {
+    "n": 24,
+    "spatial_accuracy": 0.875,
+    "spatial_auc": 0.9375,
+    "real_correct": 0.8333333333333334,
+    "fake_detected": 0.9166666666666666,
+    "service_dual_branch_accuracy": 0.6666666666666666
+  }
+}

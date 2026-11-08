@@ -1,0 +1,25 @@
+{
+  "name": "original5",
+  "checkpoints": [
+    "C:\\Users\\USEr\\Desktop\\\uc878\uc791\\Service\\AI-Generated-Media-Detection\\deepfake_detector\\models\\spatial\\convnext_fold1.pt",
+    "C:\\Users\\USEr\\Desktop\\\uc878\uc791\\Service\\AI-Generated-Media-Detection\\deepfake_detector\\models\\spatial\\convnext_fold2.pt",
+    "C:\\Users\\USEr\\Desktop\\\uc878\uc791\\Service\\AI-Generated-Media-Detection\\deepfake_detector\\models\\spatial\\convnext_fold3.pt",
+    "C:\\Users\\USEr\\Desktop\\\uc878\uc791\\Service\\AI-Generated-Media-Detection\\deepfake_detector\\models\\spatial\\convnext_fold4.pt",
+    "C:\\Users\\USEr\\Desktop\\\uc878\uc791\\Service\\AI-Generated-Media-Detection\\deepfake_detector\\models\\spatial\\convnext_fold5.pt"
+  ],
+  "stylegan_test": {
+    "n": 2000,
+    "accuracy": 0.4725,
+    "auc": 0.38826900000000003,
+    "real_correct": 0.893,
+    "fake_detected": 0.052
+  },
+  "ffpp_clips": {
+    "n": 24,
+    "spatial_accuracy": 0.9583333333333334,
+    "spatial_auc": 1.0,
+    "real_correct": 1.0,
+    "fake_detected": 0.9166666666666666,
+    "service_dual_branch_accuracy": 0.7083333333333334
+  }
+}
