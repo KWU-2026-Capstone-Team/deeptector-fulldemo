@@ -3,10 +3,10 @@
 # Needs: Git, Windows Python 3.11 (py -3.11), Node.js 20+.
 # Safe to re-run: every step skips work that is already done.
 #
-# Resulting layout (same as the original development PC):
-#   <workspace>\Service\                                   <- this repo
-#   <workspace>\Service\AI-Generated-Media-Detection\      <- team model repo (weights included)
-#   <workspace>\deepGame\                                  <- team game repo (clips + answer catalog)
+# Resulting layout (folder name of this repo does not matter):
+#   <workspace>\deeptector-fulldemo\                                  <- this repo
+#   <workspace>\deeptector-fulldemo\AI-Generated-Media-Detection\     <- team model repo (weights included)
+#   <workspace>\deepGame\                                              <- team game repo (clips + answer catalog)
 param(
     [string]$ModelRepo = 'https://github.com/KWU-2026-Capstone-Team/AI-Generated-Media-Detection.git',
     [string]$GameRepo = 'https://github.com/KWU-2026-Capstone-Team/deepGame.git',

@@ -1,10 +1,8 @@
-# DeepTector 서비스
+# DeepTector 풀 데모 (deeptector-fulldemo)
 
-이 저장소의 `main`은 DeepTector UI 프로토타입과 서비스 백엔드를 관리합니다.
+팀 [Service](https://github.com/KWU-2026-Capstone-Team/Service) 저장소의 `main`(`3a44aa3`)에서 갈라져 나온 **통합 데모 저장소**입니다. 팀 Service 저장소는 수정하지 않았습니다. 실제 모델 분석(영상·사진), 사람 vs AI 대결 게임, 교육 콘텐츠, 공개 링크를 한 번에 재현합니다.
 
-## 새 PC에서 시작하기 (`seelhwan/full-demo` 브랜치)
-
-실제 모델 분석(영상·사진), 사람 vs AI 대결 게임, 교육 콘텐츠, 공개 링크까지 한 번에 재현합니다.
+## 새 PC에서 시작하기
 
 **필요한 것**: Git, Windows Python 3.11, Node.js 20 이상.
 ```powershell
@@ -14,13 +12,13 @@ winget install --id OpenJS.NodeJS.LTS -e
 
 **설치** (처음 한 번만, 10~20분)
 ```powershell
-git clone --branch seelhwan/full-demo https://github.com/KWU-2026-Capstone-Team/Service.git
-cd Service
+git clone https://github.com/KWU-2026-Capstone-Team/deeptector-fulldemo.git
+cd deeptector-fulldemo
 powershell -ExecutionPolicy Bypass -File .\Setup-Workspace.ps1
 ```
 `Setup-Workspace.ps1`이 하는 일:
-- 팀 모델 저장소를 `Service\AI-Generated-Media-Detection\`에 clone합니다. 가중치가 git에 포함돼 있습니다.
-- 게임 저장소를 `Service`와 나란한 `..\deepGame\`에 clone합니다.
+- 팀 모델 저장소를 이 폴더 안 `AI-Generated-Media-Detection\`에 clone합니다. 가중치가 git에 포함돼 있습니다.
+- 게임 저장소를 이 폴더와 나란한 `..\deepGame\`에 clone합니다.
 - 가상환경 2개(`.venv`는 API용, `.venv-model`은 모델용)를 만듭니다.
 - 프론트엔드를 빌드합니다.
 - 게임 영상 24개와 저장된 AI 점수(`deeptector-backend/seeds/`)를 등록합니다.
@@ -36,7 +34,7 @@ powershell -ExecutionPolicy Bypass -File .\Start-PublicTunnel.ps1           # �
 - 공개 링크는 켤 때마다 주소가 바뀌고, 이 PC가 켜져 있는 동안만 접속됩니다. 주소는 `.public\current-url.txt`에도 저장됩니다.
 - 공개 링크에는 게임이 없습니다. 게임 영상(FaceForensics++ 계열)의 공개 재배포 권한을 확인하지 못했기 때문입니다.
 
-**이 브랜치에서 추가된 것**
+**팀 Service `main` 대비 추가된 것**
 | 기능 | 위치 |
 |---|---|
 | 사람 vs AI 대결 게임 (실시간 스코어, 결과 스코어보드, 라운드별 AI 판정) | `frontend/src/app/game`, `result`, `deeptector-backend/app/game.py` |
