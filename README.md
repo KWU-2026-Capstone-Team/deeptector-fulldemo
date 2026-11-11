@@ -29,10 +29,11 @@ powershell -ExecutionPolicy Bypass -File .\Setup-Workspace.ps1
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Start-Service.ps1 -Mode real     # 게임 + 분석 → http://127.0.0.1:5173/
 powershell -ExecutionPolicy Bypass -File .\Start-PublicTunnel.ps1           # 분석 전용 공개 링크(게임 꺼짐)
+powershell -ExecutionPolicy Bypass -File .\Start-PublicTunnel.ps1 -WithGames  # 게임까지 포함한 공개 링크
 ```
 - 공개 링크를 쓰려면 먼저 `winget install --id Cloudflare.cloudflared -e`로 cloudflared를 설치하세요.
 - 공개 링크는 켤 때마다 주소가 바뀌고, 이 PC가 켜져 있는 동안만 접속됩니다. 주소는 `.public\current-url.txt`에도 저장됩니다.
-- 공개 링크에는 게임이 없습니다. 게임 영상(FaceForensics++ 계열)의 공개 재배포 권한을 확인하지 못했기 때문입니다.
+- 기본 공개 링크에는 게임이 없습니다. 게임 영상(FaceForensics++ 계열)의 공개 재배포 권한을 확인하지 못했기 때문입니다. `-WithGames`는 시연용으로 짧게만 쓰세요.
 
 **팀 Service `main` 대비 추가된 것**
 | 기능 | 위치 |
